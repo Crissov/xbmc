@@ -258,10 +258,36 @@ CInfoScanner::INFO_TYPE CVideoTagLoaderFFmpeg::LoadAVI(CVideoInfoTag& tag,
   AVDictionaryEntry* avtag = nullptr;
   while ((avtag = av_dict_get(m_fctx->metadata, "", avtag, AV_DICT_IGNORE_SUFFIX)))
   {
-    if (strcmp(avtag->key, "title") == 0)
+    if (strcmp(avtag->key, "title") == 0) // INAM
       tag.SetTitle(avtag->value);
-    else if (strcmp(avtag->key,"date") == 0)
+    else if (strcmp(avtag->key,"date") == 0) // ICRD
       tag.SetYear(atoi(avtag->value));
+    else if (strcmp(avtag->key,"artist") == 0) // IART
+      tag.SetArtist(avtag->value);
+    else if (strcmp(avtag->key,"comment") == 0) // ICMT
+      tag.SetYear(avtag->value);
+    else if (strcmp(avtag->key,"copyright") == 0) // ICOP
+      tag.SetYear(avtag->value);
+    else if (strcmp(avtag->key,"album") == 0) // IPRD
+      tag.SetYear(avtag->value);
+    else if (strcmp(avtag->key,"track") == 0) // IPRT
+      tag.SetTrack(atoi(avtag->value));
+    // "encoder" // ISFT
+    // "language" // ILNG
+    // "encoded_by" // ITCH
+    // raw FourCC:
+    // // IARL
+    // // ICMS
+    // // ICRP
+    // // IDIM
+    // // IDPI
+    // // IENG
+    // // IKEY
+    // // ILGT
+    // // ISBJ
+    // // ISHP
+    // // ISRC
+    // // ISRF
   }
 
   return CInfoScanner::TITLE_NFO;
