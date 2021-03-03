@@ -116,7 +116,7 @@ bool CVideoTagLoaderFFmpeg::HasInfo() const
       avtag = av_dict_get(m_fctx->metadata, "TMDBURL", nullptr, AV_DICT_IGNORE_SUFFIX);
     if (!avtag)
       avtag = av_dict_get(m_fctx->metadata, "TITLE", nullptr, AV_DICT_IGNORE_SUFFIX);
-  } else if (m_item.IsType(".mp4") || m_item.IsType(".avi"))
+  } else if (m_item.IsType(".mp4") || m_item.IsType(".mov") || m_item.IsType(".avi"))
     avtag = av_dict_get(m_fctx->metadata, "title", nullptr, AV_DICT_IGNORE_SUFFIX);
 
   return avtag != nullptr;
@@ -127,7 +127,7 @@ CInfoScanner::INFO_TYPE CVideoTagLoaderFFmpeg::Load(CVideoInfoTag& tag,
 {
   if (m_item.IsType(".mkv"))
     return LoadMKV(tag, art);
-  else if (m_item.IsType(".mp4"))
+  else if (m_item.IsType(".mp4") || m_item.IsType(".mov"))
     return LoadMP4(tag, art);
   else if (m_item.IsType(".avi"))
     return LoadAVI(tag, art);
@@ -185,21 +185,25 @@ CInfoScanner::INFO_TYPE CVideoTagLoaderFFmpeg::LoadMKV(CVideoInfoTag& tag,
   while ((avtag = av_dict_get(m_fctx->metadata, "", avtag, AV_DICT_IGNORE_SUFFIX)))
   {
     if (StringUtils::CompareNoCase(avtag->key, "title") == 0)
+    {
       tag.SetTitle(avtag->value);
+    }
     else if (StringUtils::CompareNoCase(avtag->key, "director") == 0)
     {
       std::vector<std::string> dirs = StringUtils::Split(avtag->value, " / ");
       tag.SetDirector(dirs);
     }
     else if (StringUtils::CompareNoCase(avtag->key, "date_released") == 0)
+    {
       tag.SetYear(atoi(avtag->value));
+    }
     hastag = true;
   }
 
   return hastag ? CInfoScanner::TITLE_NFO : CInfoScanner::NO_NFO;
 }
 
-// https://wiki.multimedia.cx/index.php/FFmpeg_Metadata
+// https://wiki.multimedia.cx/index.php/FFmpeg_Metadata#QuickTime/MOV/MP4/M4A/et_al.
 CInfoScanner::INFO_TYPE CVideoTagLoaderFFmpeg::LoadMP4(CVideoInfoTag& tag,
                                                        std::vector<EmbeddedArt>* art)
 {
@@ -208,30 +212,48 @@ CInfoScanner::INFO_TYPE CVideoTagLoaderFFmpeg::LoadMP4(CVideoInfoTag& tag,
   // If either description or synopsis is found, assume user wants to use the tag info only
   while ((avtag = av_dict_get(m_fctx->metadata, "", avtag, AV_DICT_IGNORE_SUFFIX)))
   {
-    if (strcmp(avtag->key, "title") == 0)
+    if (strcmp(avtag->key, "title") == 0) // ©nam
       tag.SetTitle(avtag->value);
-    else if (strcmp(avtag->key, "composer") == 0)
+    else if (strcmp(avtag->key, "composer") == 0) // ©wrt (©com)
       tag.SetWritingCredits(StringUtils::Split(avtag->value, " / "));
-    else if (strcmp(avtag->key, "genre") == 0)
+    else if (strcmp(avtag->key, "genre") == 0) // ©gen
       tag.SetGenre(StringUtils::Split(avtag->value, " / "));
-    else if (strcmp(avtag->key,"date") == 0)
+    else if (strcmp(avtag->key,"date") == 0) // "year" = ©day
       tag.SetYear(atoi(avtag->value));
-    else if (strcmp(avtag->key, "description") == 0)
+    else if (strcmp(avtag->key, "description") == 0) // desc
     {
       tag.SetPlotOutline(avtag->value);
       hasfull = true;
     }
-    else if (strcmp(avtag->key, "synopsis") == 0)
+    else if (strcmp(avtag->key, "synopsis") == 0) // ldes
     {
       tag.SetPlot(avtag->value);
       hasfull = true;
     }
-    else if (strcmp(avtag->key, "track") == 0)
+    else if (strcmp(avtag->key, "track") == 0) // trkn
       tag.m_iTrack = std::stoi(avtag->value);
-    else if (strcmp(avtag->key, "album") == 0)
+    else if (strcmp(avtag->key, "album") == 0) // ©alb
       tag.SetAlbum(avtag->value);
-    else if (strcmp(avtag->key, "artist") == 0)
+    else if (strcmp(avtag->key, "artist") == 0) // "author" = ©ART, "album_artist" = aART
       tag.SetArtist(StringUtils::Split(avtag->value, " / "));
+    else if (strcmp(avtag->key, "rating") == 0) // rtng
+      tag.SetRating(avtag->value);
+    else if (strcmp(avtag->key, "grouping") == 0) // ©grp
+      tag.SetSet(avtag->value);
+    else if (strcmp(avtag->key, "url") == 0) // ©url
+      tag.SetShowLink(avtag->value);
+    else if (strcmp(avtag->key, "show") == 0) // tvsh
+      tag.SetShowTitle(avtag->value);
+    else if (strcmp(avtag->key, "sort_name") == 0 || strcmp(avtag->key, "title-sort") == 0) // sonm
+      tag.SetSortTitle(avtag->value);
+    else if (strcmp(avtag->key, "publisher") == 0 || strcmp(avtag->key, "network") == 0)
+      tag.SetStudio(avtag->value);
+    else if (strcmp(avtag->key, "subtitle") == 0) // ©st3
+      tag.SetTagLine(avtag->value);
+    else if (strcmp(avtag->key, "episode_id") == 0) // tven
+      tag.SetProductionCode(avtag->value);
+    else if (strcmp(avtag->key, "episode_uid") == 0) // egid (cnID?)
+      tag.SetUniqueID(avtag->value);
   }
 
   for (size_t i = 0; i < m_fctx->nb_streams; ++i)
